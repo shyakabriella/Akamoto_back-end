@@ -5,7 +5,9 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\RegisterController;
 use App\Http\Controllers\API\ProfileController;
 use App\Http\Controllers\API\RiderController;
+use App\Http\Controllers\API\PricingQuoteController;
 use App\Http\Controllers\API\Admin\RiderManagementController;
+use App\Http\Controllers\API\Admin\PricingRuleController;
 
 /*
 |--------------------------------------------------------------------------
@@ -68,7 +70,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | Customer/User Profile
+    | General User Profile
     |--------------------------------------------------------------------------
     */
     Route::get('/profile', [ProfileController::class, 'show']);
@@ -90,14 +92,35 @@ Route::middleware('auth:sanctum')->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | Admin Rider Management Routes
+    | Pricing Quote
+    |--------------------------------------------------------------------------
+    */
+    Route::post('/pricing/quote', [PricingQuoteController::class, 'calculate']);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Admin Routes
     |--------------------------------------------------------------------------
     */
     Route::prefix('admin')->group(function () {
+
+        /*
+        |--------------------------------------------------------------------------
+        | Admin Rider Management
+        |--------------------------------------------------------------------------
+        */
         Route::get('/riders', [RiderManagementController::class, 'index']);
         Route::get('/riders/{rider}', [RiderManagementController::class, 'show']);
         Route::post('/riders/{rider}/approve', [RiderManagementController::class, 'approve']);
         Route::post('/riders/{rider}/reject', [RiderManagementController::class, 'reject']);
         Route::post('/riders/{rider}/suspend', [RiderManagementController::class, 'suspend']);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Admin Pricing Rules
+        |--------------------------------------------------------------------------
+        */
+        Route::apiResource('pricing-rules', PricingRuleController::class);
+        Route::post('/pricing-rules/{pricingRule}/activate', [PricingRuleController::class, 'activate']);
     });
 });
