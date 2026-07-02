@@ -9,9 +9,6 @@ use Illuminate\Support\Facades\Hash;
 
 class UserSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
         $adminRole = Role::where('name', User::ROLE_ADMIN)->first();
@@ -22,10 +19,14 @@ class UserSeeder extends Seeder
         }
 
         User::updateOrCreate(
-            ['email' => 'admin@akamoto.com'],
+            [
+                'email' => 'admin@akamoto.com',
+            ],
             [
                 'role_id' => $adminRole->id,
                 'name' => 'Akamoto Admin',
+                'username' => 'akamoto_admin',
+                'phone' => '250780000000',
                 'password' => Hash::make('Admin@12345'),
             ]
         );

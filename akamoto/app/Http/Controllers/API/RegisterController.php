@@ -5,87 +5,135 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\API\BaseController as BaseController;
 use App\Models\Role;
 use App\Models\User;
+use App\Notifications\AccountCredentialsNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
+use Throwable;
 
 class RegisterController extends BaseController
 {
     /**
      * Register API
      *
-     * Customer will register using:
-     * - username
+     * User will fill:
+     * - name
      * - email
      * - phone
+     *
+     * System will generate:
+     * - username
      * - password
-     * - c_password
      */
     public function register(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'username' => 'required|string|max:255|unique:users,username',
+            'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email',
             'phone' => 'required|string|max:30|unique:users,phone',
-            'password' => 'required|string|min:6',
-            'c_password' => 'required|same:password',
+
+            /*
+             * Optional role.
+             * Public registration creates customer by default.
+             */
+            'role' => 'nullable|string|in:admin,rider,customer',
         ]);
 
         if ($validator->fails()) {
             return $this->sendError('Validation Error.', $validator->errors(), 422);
         }
 
-        /*
-         * Public registration creates customer account by default.
-         * Admin is created using UserSeeder.
-         * Rider registration can be added later with rider approval system.
-         */
-        $customerRole = Role::where('name', User::ROLE_CUSTOMER)->first();
+        $requestedRole = $request->input('role', User::ROLE_CUSTOMER);
 
-        if (!$customerRole) {
+        /*
+         * Public users can only create customer account.
+         * Only admin can create rider or admin account.
+         */
+        if ($requestedRole !== User::ROLE_CUSTOMER) {
+            if (!Auth::check() || !Auth::user()->isAdmin()) {
+                return $this->sendError('Permission Error.', [
+                    'role' => ['Only admin can create rider or admin accounts.'],
+                ], 403);
+            }
+        }
+
+        $role = Role::where('name', $requestedRole)->first();
+
+        if (!$role) {
             return $this->sendError('Role Error.', [
-                'role' => ['Customer role not found. Please run RoleSeeder first.']
+                'role' => ['Role not found. Please run RoleSeeder first.'],
             ], 500);
         }
 
+        $generatedUsername = $this->generateUniqueUsername($request->name, $request->phone);
+        $generatedPassword = $this->generatePassword();
+
         $user = User::create([
-            'role_id' => $customerRole->id,
-            'username' => $request->username,
+            'role_id' => $role->id,
+            'name' => $request->name,
+            'username' => $generatedUsername,
             'email' => $request->email,
             'phone' => $request->phone,
-            'password' => Hash::make($request->password),
+            'password' => Hash::make($generatedPassword),
         ]);
 
         $user->load('role');
 
+        $credentialsSent = false;
+
+        try {
+            $user->notify(new AccountCredentialsNotification($user, $generatedPassword));
+            $credentialsSent = true;
+        } catch (Throwable $exception) {
+            Log::error('Failed to send Akamoto account credentials email.', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'error' => $exception->getMessage(),
+            ]);
+        }
+
         $success = [
             'token' => $user->createToken('AkamotoApp')->plainTextToken,
+            'credentials_sent' => $credentialsSent,
+
+            /*
+             * For testing, we return generated password.
+             * In production, you can remove password from response and send only by email/SMS.
+             */
+            'generated_credentials' => [
+                'username' => $user->username,
+                'phone' => $user->phone,
+                'password' => $generatedPassword,
+            ],
+
             'user' => [
                 'id' => $user->id,
                 'role' => $user->role?->name,
+                'name' => $user->name,
                 'username' => $user->username,
                 'email' => $user->email,
                 'phone' => $user->phone,
             ],
         ];
 
-        return $this->sendResponse($success, 'User registered successfully.');
+        return $this->sendResponse($success, 'User account created successfully. Credentials generated by system.');
     }
 
     /**
      * Login API
      *
-     * User can login using:
-     * - email
+     * User will login using:
      * - phone
-     * - username
+     * - password generated by system
      */
     public function login(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'login' => 'required|string',
+            'phone' => 'required|string',
             'password' => 'required|string',
         ]);
 
@@ -93,16 +141,11 @@ class RegisterController extends BaseController
             return $this->sendError('Validation Error.', $validator->errors(), 422);
         }
 
-        $login = $request->login;
-
-        $user = User::where('email', $login)
-            ->orWhere('phone', $login)
-            ->orWhere('username', $login)
-            ->first();
+        $user = User::where('phone', $request->phone)->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             return $this->sendError('Unauthorised.', [
-                'error' => 'Invalid login details.'
+                'error' => 'Invalid phone number or password.',
             ], 401);
         }
 
@@ -115,6 +158,7 @@ class RegisterController extends BaseController
             'user' => [
                 'id' => $user->id,
                 'role' => $user->role?->name,
+                'name' => $user->name,
                 'username' => $user->username,
                 'email' => $user->email,
                 'phone' => $user->phone,
@@ -122,5 +166,41 @@ class RegisterController extends BaseController
         ];
 
         return $this->sendResponse($success, 'User logged in successfully.');
+    }
+
+    /**
+     * Generate unique username from name and phone.
+     */
+    private function generateUniqueUsername(string $name, string $phone): string
+    {
+        $cleanName = strtolower(preg_replace('/[^a-zA-Z0-9]/', '_', $name));
+        $cleanName = trim($cleanName, '_');
+
+        if (empty($cleanName)) {
+            $cleanName = 'akamoto_user';
+        }
+
+        $lastFourDigits = substr(preg_replace('/[^0-9]/', '', $phone), -4);
+
+        if (!$lastFourDigits) {
+            $lastFourDigits = random_int(1000, 9999);
+        }
+
+        $baseUsername = $cleanName . '_' . $lastFourDigits;
+        $username = $baseUsername;
+
+        while (User::where('username', $username)->exists()) {
+            $username = $baseUsername . '_' . random_int(1000, 9999);
+        }
+
+        return $username;
+    }
+
+    /**
+     * Generate readable password.
+     */
+    private function generatePassword(): string
+    {
+        return 'Aka-' . Str::upper(Str::random(4)) . '-' . random_int(1000, 9999);
     }
 }

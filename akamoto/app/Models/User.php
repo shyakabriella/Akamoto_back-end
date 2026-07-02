@@ -16,34 +16,21 @@ class User extends Authenticatable
     public const ROLE_RIDER = 'rider';
     public const ROLE_CUSTOMER = 'customer';
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
     protected $fillable = [
         'role_id',
         'name',
+        'username',
         'email',
+        'phone',
         'password',
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var array<int, string>
-     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
-    protected function casts(): array
+    protected function casts(): array 
     {
         return [
             'email_verified_at' => 'datetime',
@@ -51,41 +38,26 @@ class User extends Authenticatable
         ];
     }
 
-    /**
-     * User belongs to one role.
-     */
     public function role(): BelongsTo
     {
         return $this->belongsTo(Role::class);
     }
 
-    /**
-     * Check if user has a specific role.
-     */
     public function hasRole(string $role): bool
     {
         return $this->role?->name === $role;
     }
 
-    /**
-     * Check if user is admin.
-     */
     public function isAdmin(): bool
     {
         return $this->hasRole(self::ROLE_ADMIN);
     }
 
-    /**
-     * Check if user is rider.
-     */
     public function isRider(): bool
     {
         return $this->hasRole(self::ROLE_RIDER);
     }
 
-    /**
-     * Check if user is customer.
-     */
     public function isCustomer(): bool
     {
         return $this->hasRole(self::ROLE_CUSTOMER);

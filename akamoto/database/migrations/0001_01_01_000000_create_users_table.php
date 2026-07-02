@@ -11,6 +11,22 @@ return new class extends Migration
      */
     public function up(): void
     {
+        /*
+         * Create roles first because users table needs role_id.
+         * Roles: admin, rider, customer
+         */
+        Schema::create('roles', function (Blueprint $table) {
+            $table->id();
+            $table->string('name')->unique();
+            $table->string('description')->nullable();
+            $table->timestamps();
+        });
+
+        /*
+         * Create users table.
+         * User will fill: name, email, phone.
+         * System will generate: username and password.
+         */
         Schema::create('users', function (Blueprint $table) {
             $table->id();
 
@@ -21,23 +37,32 @@ return new class extends Migration
                 ->nullOnDelete();
 
             // User information
+            $table->string('name');
             $table->string('username')->unique();
             $table->string('email')->unique();
             $table->string('phone')->unique();
 
+            // Account verification and password
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
 
+            // Remember token and timestamps
             $table->rememberToken();
             $table->timestamps();
         });
 
+        /*
+         * Password reset tokens table.
+         */
         Schema::create('password_reset_tokens', function (Blueprint $table) {
             $table->string('email')->primary();
             $table->string('token');
             $table->timestamp('created_at')->nullable();
         });
 
+        /*
+         * Sessions table.
+         */
         Schema::create('sessions', function (Blueprint $table) {
             $table->string('id')->primary();
 
@@ -60,5 +85,6 @@ return new class extends Migration
         Schema::dropIfExists('sessions');
         Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('users');
+        Schema::dropIfExists('roles');
     }
 };
