@@ -48,11 +48,20 @@ class User extends Authenticatable
     }
 
     /**
-     * User has one profile.
+     * User has one general profile.
      */
     public function profile(): HasOne
     {
         return $this->hasOne(Profile::class);
+    }
+
+    /**
+     * User has one rider profile.
+     * This is used only when the user role is rider.
+     */
+    public function rider(): HasOne
+    {
+        return $this->hasOne(Rider::class);
     }
 
     /**
