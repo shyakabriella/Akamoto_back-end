@@ -1,0 +1,292 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Akamoto API Documentation",
+        "description": "Akamoto is a city delivery system with customer, rider, and admin users.",
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "http://127.0.0.1:8000",
+            "description": "Local Development Server"
+        }
+    ],
+    "paths": {
+        "/api/register": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Register new user",
+                "description": "User fills name, email, and phone. System generates username and password.",
+                "operationId": "613a240907be2b7b30344f61c9877e3f",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "email",
+                                    "phone"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "John Customer"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "john@example.com"
+                                    },
+                                    "phone": {
+                                        "type": "string",
+                                        "example": "250788123456"
+                                    },
+                                    "role": {
+                                        "type": "string",
+                                        "example": "customer",
+                                        "enum": [
+                                            "admin",
+                                            "rider",
+                                            "customer"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "User account created successfully"
+                    },
+                    "403": {
+                        "description": "Only admin can create rider or admin accounts"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "500": {
+                        "description": "Role not found"
+                    }
+                }
+            }
+        },
+        "/api/login": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Login user",
+                "description": "User logs in using phone number and generated password.",
+                "operationId": "4976f56852bf380699d04958a24ab8f2",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "phone",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "phone": {
+                                        "type": "string",
+                                        "example": "250788123456"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "example": "Aka-ABCD-1234"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "User logged in successfully"
+                    },
+                    "401": {
+                        "description": "Invalid phone number or password"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            }
+        },
+        "/api/me": {
+            "get": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Get logged-in user",
+                "description": "Returns logged-in user with role and profile.",
+                "operationId": "59f889cbbafe3fa257f6df1ea0bac5a7",
+                "responses": {
+                    "200": {
+                        "description": "Logged-in user fetched successfully"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/profile": {
+            "get": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Get profile",
+                "description": "Returns the logged-in user profile.",
+                "operationId": "025d57cd64d2f7f9ea86cebb23cd15ff",
+                "responses": {
+                    "200": {
+                        "description": "Profile fetched successfully"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Update profile",
+                "description": "User updates profile image, location address, and street code.",
+                "operationId": "01527c342c6eeb242bddeef811457d85",
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "properties": {
+                                    "image": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "location_address": {
+                                        "type": "string",
+                                        "example": "Kigali, Rwanda"
+                                    },
+                                    "street_code": {
+                                        "type": "string",
+                                        "example": "KG 15 Ave"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Profile updated successfully"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/profile/image": {
+            "delete": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Delete profile image",
+                "description": "Deletes only the logged-in user profile image.",
+                "operationId": "68effcacd8696d50a8124f9397aec0e4",
+                "responses": {
+                    "200": {
+                        "description": "Profile image deleted successfully"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "404": {
+                        "description": "No profile image found"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/logout": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Logout user",
+                "description": "Deletes the current user access token.",
+                "operationId": "85631bfadfdceb9b919ae21fcd569e14",
+                "responses": {
+                    "200": {
+                        "description": "User logged out successfully"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "sanctum": {
+                "type": "apiKey",
+                "description": "Enter token in format: Bearer YOUR_TOKEN_HERE",
+                "name": "Authorization",
+                "in": "header"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Authentication",
+            "description": "Register and login APIs"
+        },
+        {
+            "name": "Profile",
+            "description": "User profile APIs"
+        }
+    ],
+    "security": [
+        {
+            "sanctum": []
+        }
+    ]
+}

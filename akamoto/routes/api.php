@@ -3,14 +3,12 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\RegisterController;
-use App\Http\Controllers\API\ProductController;
+use App\Http\Controllers\API\ProfileController;
 
 /*
 |--------------------------------------------------------------------------
 | Public API Routes
 |--------------------------------------------------------------------------
-| These routes do not need login token.
-| Used for creating account and login.
 */
 
 Route::controller(RegisterController::class)->group(function () {
@@ -22,35 +20,30 @@ Route::controller(RegisterController::class)->group(function () {
 |--------------------------------------------------------------------------
 | Protected API Routes
 |--------------------------------------------------------------------------
-| These routes need Sanctum token.
-| In Postman, add:
-| Authorization: Bearer YOUR_TOKEN_HERE
 */
 
 Route::middleware('auth:sanctum')->group(function () {
 
-    /*
-    |--------------------------------------------------------------------------
-    | Logged-in User Profile
-    |--------------------------------------------------------------------------
-    | Used to check current logged-in user.
-    */
     Route::get('/me', function (Request $request) {
+        $user = $request->user()->load(['role', 'profile']);
+
         return response()->json([
             'success' => true,
             'message' => 'Logged-in user fetched successfully.',
             'data' => [
-                'user' => $request->user()->load('role'),
+                'user' => [
+                    'id' => $user->id,
+                    'role' => $user->role?->name,
+                    'name' => $user->name,
+                    'username' => $user->username,
+                    'email' => $user->email,
+                    'phone' => $user->phone,
+                    'profile' => $user->profile,
+                ],
             ],
         ]);
     });
 
-    /*
-    |--------------------------------------------------------------------------
-    | Logout
-    |--------------------------------------------------------------------------
-    | Deletes only the current user token.
-    */
     Route::post('/logout', function (Request $request) {
         $request->user()->currentAccessToken()->delete();
 
@@ -62,11 +55,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | Products API
+    | Profile Routes
     |--------------------------------------------------------------------------
-    | This is only for testing now.
-    | Later in Akamoto, we shall replace products with:
-    | orders, riders, pricing, commissions, payments, etc.
     */
-    Route::apiResource('products', ProductController::class);
+
+    Route::get('/profile', [ProfileController::class, 'show']);
+    Route::post('/profile', [ProfileController::class, 'update']);
+    Route::delete('/profile/image', [ProfileController::class, 'deleteImage']);
 });

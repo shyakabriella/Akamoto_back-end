@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -38,26 +39,49 @@ class User extends Authenticatable
         ];
     }
 
+    /**
+     * User belongs to one role.
+     */
     public function role(): BelongsTo
     {
         return $this->belongsTo(Role::class);
     }
 
+    /**
+     * User has one profile.
+     */
+    public function profile(): HasOne
+    {
+        return $this->hasOne(Profile::class);
+    }
+
+    /**
+     * Check if user has a specific role.
+     */
     public function hasRole(string $role): bool
     {
         return $this->role?->name === $role;
     }
 
+    /**
+     * Check if user is admin.
+     */
     public function isAdmin(): bool
     {
         return $this->hasRole(self::ROLE_ADMIN);
     }
 
+    /**
+     * Check if user is rider.
+     */
     public function isRider(): bool
     {
         return $this->hasRole(self::ROLE_RIDER);
     }
 
+    /**
+     * Check if user is customer.
+     */
     public function isCustomer(): bool
     {
         return $this->hasRole(self::ROLE_CUSTOMER);
