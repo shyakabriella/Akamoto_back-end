@@ -36,6 +36,14 @@ use OpenApi\Attributes as OA;
     name: 'Admin Riders',
     description: 'Admin rider management APIs'
 )]
+#[OA\Tag(
+    name: 'Pricing',
+    description: 'Delivery price calculation APIs'
+)]
+#[OA\Tag(
+    name: 'Admin Pricing Rules',
+    description: 'Admin pricing and commission management APIs'
+)]
 class OpenApiInfo
 {
     /*
@@ -118,7 +126,7 @@ class OpenApiInfo
 
     /*
     |--------------------------------------------------------------------------
-    | Logged-in User / General Profile APIs
+    | Profile APIs
     |--------------------------------------------------------------------------
     */
 
@@ -532,6 +540,309 @@ class OpenApiInfo
         ]
     )]
     public function adminSuspendRider(): void
+    {
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Pricing Quote API
+    |--------------------------------------------------------------------------
+    */
+
+    #[OA\Post(
+        path: '/api/pricing/quote',
+        tags: ['Pricing'],
+        summary: 'Calculate delivery price',
+        description: 'Calculates delivery price, Akamoto commission, and rider earning using the active pricing rule.',
+        security: [
+            ['sanctum' => []],
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['distance_km'],
+                properties: [
+                    new OA\Property(property: 'distance_km', type: 'number', format: 'float', example: 6),
+                    new OA\Property(property: 'vehicle_type', type: 'string', enum: ['moto', 'bicycle', 'car', 'van'], example: 'moto'),
+                ],
+                type: 'object'
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Delivery price calculated successfully'),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 404, description: 'No active pricing rule found'),
+            new OA\Response(response: 422, description: 'Validation error'),
+        ]
+    )]
+    public function calculatePricingQuote(): void
+    {
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Admin Pricing Rules APIs
+    |--------------------------------------------------------------------------
+    */
+
+    #[OA\Get(
+        path: '/api/admin/pricing-rules',
+        tags: ['Admin Pricing Rules'],
+        summary: 'List pricing rules',
+        description: 'Admin can list all pricing rules and filter by vehicle type, active status, or search keyword.',
+        security: [
+            ['sanctum' => []],
+        ],
+        parameters: [
+            new OA\Parameter(
+                name: 'vehicle_type',
+                in: 'query',
+                required: false,
+                schema: new OA\Schema(type: 'string', enum: ['moto', 'bicycle', 'car', 'van']),
+                example: 'moto'
+            ),
+            new OA\Parameter(
+                name: 'is_active',
+                in: 'query',
+                required: false,
+                schema: new OA\Schema(type: 'boolean'),
+                example: true
+            ),
+            new OA\Parameter(
+                name: 'search',
+                in: 'query',
+                required: false,
+                schema: new OA\Schema(type: 'string'),
+                example: 'Kigali Moto'
+            ),
+            new OA\Parameter(
+                name: 'per_page',
+                in: 'query',
+                required: false,
+                schema: new OA\Schema(type: 'integer'),
+                example: 15
+            ),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Pricing rules fetched successfully'),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'Only admin can view pricing rules'),
+        ]
+    )]
+    public function adminListPricingRules(): void
+    {
+    }
+
+    #[OA\Post(
+        path: '/api/admin/pricing-rules',
+        tags: ['Admin Pricing Rules'],
+        summary: 'Create pricing rule',
+        description: 'Admin creates a new pricing rule with base price, price per kilometer, minimum price, and commission percentage.',
+        security: [
+            ['sanctum' => []],
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['name', 'base_price', 'price_per_km', 'minimum_price', 'commission_percentage'],
+                properties: [
+                    new OA\Property(property: 'name', type: 'string', example: 'Kigali Moto Standard'),
+                    new OA\Property(property: 'vehicle_type', type: 'string', enum: ['moto', 'bicycle', 'car', 'van'], example: 'moto'),
+                    new OA\Property(property: 'base_price', type: 'number', format: 'float', example: 1000),
+                    new OA\Property(property: 'price_per_km', type: 'number', format: 'float', example: 500),
+                    new OA\Property(property: 'minimum_price', type: 'number', format: 'float', example: 1500),
+                    new OA\Property(property: 'commission_percentage', type: 'number', format: 'float', example: 20),
+                    new OA\Property(property: 'currency', type: 'string', example: 'RWF'),
+                    new OA\Property(property: 'is_active', type: 'boolean', example: true),
+                ],
+                type: 'object'
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Pricing rule created successfully'),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'Only admin can create pricing rules'),
+            new OA\Response(response: 422, description: 'Validation error'),
+        ]
+    )]
+    public function adminCreatePricingRule(): void
+    {
+    }
+
+    #[OA\Get(
+        path: '/api/admin/pricing-rules/{pricing_rule}',
+        tags: ['Admin Pricing Rules'],
+        summary: 'Show pricing rule',
+        description: 'Admin can view one pricing rule by ID.',
+        security: [
+            ['sanctum' => []],
+        ],
+        parameters: [
+            new OA\Parameter(
+                name: 'pricing_rule',
+                in: 'path',
+                required: true,
+                description: 'Pricing rule ID',
+                schema: new OA\Schema(type: 'integer'),
+                example: 1
+            ),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Pricing rule details fetched successfully'),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'Only admin can view pricing rule details'),
+            new OA\Response(response: 404, description: 'Pricing rule not found'),
+        ]
+    )]
+    public function adminShowPricingRule(): void
+    {
+    }
+
+    #[OA\Put(
+        path: '/api/admin/pricing-rules/{pricing_rule}',
+        tags: ['Admin Pricing Rules'],
+        summary: 'Update pricing rule',
+        description: 'Admin updates pricing rule values.',
+        security: [
+            ['sanctum' => []],
+        ],
+        parameters: [
+            new OA\Parameter(
+                name: 'pricing_rule',
+                in: 'path',
+                required: true,
+                description: 'Pricing rule ID',
+                schema: new OA\Schema(type: 'integer'),
+                example: 1
+            ),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: 'name', type: 'string', example: 'Kigali Moto Updated'),
+                    new OA\Property(property: 'vehicle_type', type: 'string', enum: ['moto', 'bicycle', 'car', 'van'], example: 'moto'),
+                    new OA\Property(property: 'base_price', type: 'number', format: 'float', example: 1200),
+                    new OA\Property(property: 'price_per_km', type: 'number', format: 'float', example: 600),
+                    new OA\Property(property: 'minimum_price', type: 'number', format: 'float', example: 1800),
+                    new OA\Property(property: 'commission_percentage', type: 'number', format: 'float', example: 18),
+                    new OA\Property(property: 'currency', type: 'string', example: 'RWF'),
+                    new OA\Property(property: 'is_active', type: 'boolean', example: true),
+                ],
+                type: 'object'
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Pricing rule updated successfully'),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'Only admin can update pricing rules'),
+            new OA\Response(response: 404, description: 'Pricing rule not found'),
+            new OA\Response(response: 422, description: 'Validation error'),
+        ]
+    )]
+    public function adminUpdatePricingRule(): void
+    {
+    }
+
+    #[OA\Patch(
+        path: '/api/admin/pricing-rules/{pricing_rule}',
+        tags: ['Admin Pricing Rules'],
+        summary: 'Partially update pricing rule',
+        description: 'Admin partially updates pricing rule values.',
+        security: [
+            ['sanctum' => []],
+        ],
+        parameters: [
+            new OA\Parameter(
+                name: 'pricing_rule',
+                in: 'path',
+                required: true,
+                description: 'Pricing rule ID',
+                schema: new OA\Schema(type: 'integer'),
+                example: 1
+            ),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: 'name', type: 'string', example: 'Kigali Moto Updated'),
+                    new OA\Property(property: 'base_price', type: 'number', format: 'float', example: 1200),
+                    new OA\Property(property: 'price_per_km', type: 'number', format: 'float', example: 600),
+                    new OA\Property(property: 'minimum_price', type: 'number', format: 'float', example: 1800),
+                    new OA\Property(property: 'commission_percentage', type: 'number', format: 'float', example: 18),
+                    new OA\Property(property: 'is_active', type: 'boolean', example: true),
+                ],
+                type: 'object'
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Pricing rule updated successfully'),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'Only admin can update pricing rules'),
+            new OA\Response(response: 404, description: 'Pricing rule not found'),
+            new OA\Response(response: 422, description: 'Validation error'),
+        ]
+    )]
+    public function adminPatchPricingRule(): void
+    {
+    }
+
+    #[OA\Post(
+        path: '/api/admin/pricing-rules/{pricingRule}/activate',
+        tags: ['Admin Pricing Rules'],
+        summary: 'Activate pricing rule',
+        description: 'Admin activates a pricing rule. Other active rules for the same vehicle type are deactivated.',
+        security: [
+            ['sanctum' => []],
+        ],
+        parameters: [
+            new OA\Parameter(
+                name: 'pricingRule',
+                in: 'path',
+                required: true,
+                description: 'Pricing rule ID',
+                schema: new OA\Schema(type: 'integer'),
+                example: 1
+            ),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Pricing rule activated successfully'),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'Only admin can activate pricing rules'),
+            new OA\Response(response: 404, description: 'Pricing rule not found'),
+        ]
+    )]
+    public function adminActivatePricingRule(): void
+    {
+    }
+
+    #[OA\Delete(
+        path: '/api/admin/pricing-rules/{pricing_rule}',
+        tags: ['Admin Pricing Rules'],
+        summary: 'Delete pricing rule',
+        description: 'Admin deletes a pricing rule.',
+        security: [
+            ['sanctum' => []],
+        ],
+        parameters: [
+            new OA\Parameter(
+                name: 'pricing_rule',
+                in: 'path',
+                required: true,
+                description: 'Pricing rule ID',
+                schema: new OA\Schema(type: 'integer'),
+                example: 1
+            ),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Pricing rule deleted successfully'),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'Only admin can delete pricing rules'),
+            new OA\Response(response: 404, description: 'Pricing rule not found'),
+        ]
+    )]
+    public function adminDeletePricingRule(): void
     {
     }
 }
