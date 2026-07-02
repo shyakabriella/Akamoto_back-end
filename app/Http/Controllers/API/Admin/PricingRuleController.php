@@ -11,9 +11,6 @@ use Illuminate\Support\Facades\Validator;
 
 class PricingRuleController extends BaseController
 {
-    /**
-     * List pricing rules.
-     */
     public function index(Request $request): JsonResponse
     {
         $admin = $request->user()->load('role');
@@ -45,9 +42,6 @@ class PricingRuleController extends BaseController
         ], 'Pricing rules fetched successfully.');
     }
 
-    /**
-     * Create pricing rule.
-     */
     public function store(Request $request): JsonResponse
     {
         $admin = $request->user()->load('role');
@@ -61,10 +55,19 @@ class PricingRuleController extends BaseController
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'vehicle_type' => 'nullable|string|in:moto,bicycle,car,van',
-            'base_price' => 'required|numeric|min:0',
-            'price_per_km' => 'required|numeric|min:0',
-            'minimum_price' => 'required|numeric|min:0',
-            'commission_percentage' => 'required|numeric|min:0|max:100',
+
+            /*
+             * Akamoto default:
+             * first 3 km = 1000
+             * extra 1 km = 200
+             * commission = 20%
+             */
+            'base_distance_km' => 'nullable|numeric|min:0.1',
+            'base_price' => 'nullable|numeric|min:0',
+            'extra_price_per_km' => 'nullable|numeric|min:0',
+            'minimum_price' => 'nullable|numeric|min:0',
+            'commission_percentage' => 'nullable|numeric|min:0|max:100',
+
             'currency' => 'nullable|string|max:10',
             'is_active' => 'nullable|boolean',
         ]);
@@ -76,10 +79,6 @@ class PricingRuleController extends BaseController
         $pricingRule = DB::transaction(function () use ($request, $admin) {
             $isActive = $request->boolean('is_active');
 
-            /*
-             * If this new rule is active, deactivate other active rules
-             * for the same vehicle type.
-             */
             if ($isActive) {
                 PricingRule::where('vehicle_type', $request->vehicle_type)
                     ->where('is_active', true)
@@ -89,10 +88,14 @@ class PricingRuleController extends BaseController
             return PricingRule::create([
                 'name' => $request->name,
                 'vehicle_type' => $request->vehicle_type,
-                'base_price' => $request->base_price,
-                'price_per_km' => $request->price_per_km,
-                'minimum_price' => $request->minimum_price,
-                'commission_percentage' => $request->commission_percentage,
+
+                'base_distance_km' => $request->input('base_distance_km', 3),
+                'base_price' => $request->input('base_price', 1000),
+                'price_per_km' => 0,
+                'extra_price_per_km' => $request->input('extra_price_per_km', 200),
+                'minimum_price' => $request->input('minimum_price', 0),
+                'commission_percentage' => $request->input('commission_percentage', 20),
+
                 'currency' => $request->input('currency', 'RWF'),
                 'is_active' => $isActive,
                 'created_by' => $admin->id,
@@ -105,9 +108,6 @@ class PricingRuleController extends BaseController
         ], 'Pricing rule created successfully.');
     }
 
-    /**
-     * Show one pricing rule.
-     */
     public function show(Request $request, PricingRule $pricingRule): JsonResponse
     {
         $admin = $request->user()->load('role');
@@ -123,9 +123,6 @@ class PricingRuleController extends BaseController
         ], 'Pricing rule details fetched successfully.');
     }
 
-    /**
-     * Update pricing rule.
-     */
     public function update(Request $request, PricingRule $pricingRule): JsonResponse
     {
         $admin = $request->user()->load('role');
@@ -139,10 +136,13 @@ class PricingRuleController extends BaseController
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|required|string|max:255',
             'vehicle_type' => 'nullable|string|in:moto,bicycle,car,van',
-            'base_price' => 'sometimes|required|numeric|min:0',
-            'price_per_km' => 'sometimes|required|numeric|min:0',
-            'minimum_price' => 'sometimes|required|numeric|min:0',
-            'commission_percentage' => 'sometimes|required|numeric|min:0|max:100',
+
+            'base_distance_km' => 'nullable|numeric|min:0.1',
+            'base_price' => 'nullable|numeric|min:0',
+            'extra_price_per_km' => 'nullable|numeric|min:0',
+            'minimum_price' => 'nullable|numeric|min:0',
+            'commission_percentage' => 'nullable|numeric|min:0|max:100',
+
             'currency' => 'nullable|string|max:10',
             'is_active' => 'nullable|boolean',
         ]);
@@ -155,8 +155,9 @@ class PricingRuleController extends BaseController
             $data = $request->only([
                 'name',
                 'vehicle_type',
+                'base_distance_km',
                 'base_price',
-                'price_per_km',
+                'extra_price_per_km',
                 'minimum_price',
                 'commission_percentage',
                 'currency',
@@ -183,9 +184,6 @@ class PricingRuleController extends BaseController
         ], 'Pricing rule updated successfully.');
     }
 
-    /**
-     * Activate pricing rule.
-     */
     public function activate(Request $request, PricingRule $pricingRule): JsonResponse
     {
         $admin = $request->user()->load('role');
@@ -213,9 +211,6 @@ class PricingRuleController extends BaseController
         ], 'Pricing rule activated successfully.');
     }
 
-    /**
-     * Delete pricing rule.
-     */
     public function destroy(Request $request, PricingRule $pricingRule): JsonResponse
     {
         $admin = $request->user()->load('role');

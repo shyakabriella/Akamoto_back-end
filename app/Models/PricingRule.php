@@ -18,10 +18,23 @@ class PricingRule extends Model
     protected $fillable = [
         'name',
         'vehicle_type',
+
+        /*
+         * Akamoto tariff:
+         * first base_distance_km is charged base_price.
+         * extra distance is charged extra_price_per_km.
+         */
+        'base_distance_km',
         'base_price',
         'price_per_km',
+        'extra_price_per_km',
         'minimum_price',
+
+        /*
+         * Commission is 20% of completed journey price.
+         */
         'commission_percentage',
+
         'currency',
         'is_active',
         'created_by',
@@ -29,31 +42,27 @@ class PricingRule extends Model
     ];
 
     protected $casts = [
+        'base_distance_km' => 'decimal:2',
         'base_price' => 'decimal:2',
         'price_per_km' => 'decimal:2',
+        'extra_price_per_km' => 'decimal:2',
         'minimum_price' => 'decimal:2',
         'commission_percentage' => 'decimal:2',
         'is_active' => 'boolean',
     ];
 
-    /**
-     * Admin who created the pricing rule.
-     */
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    /**
-     * Admin who last updated the pricing rule.
-     */
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
 
     /**
-     * Find active pricing rule for a vehicle type.
+     * Find active pricing rule for vehicle type.
      *
      * Priority:
      * 1. Active rule for exact vehicle type
@@ -88,32 +97,65 @@ class PricingRule extends Model
     }
 
     /**
-     * Calculate delivery price, commission, and rider earning.
+     * Akamoto pricing formula:
+     *
+     * First 3 km = 1000 RWF
+     * Every extra started km = 200 RWF
+     *
+     * Example:
+     * 3 km = 1000
+     * 4 km = 1200
+     * 6.2 km = 1800 because extra 3.2 km is rounded to 4 km
      */
     public function calculatePrice(float $distanceKm): array
     {
-        $basePrice = (float) $this->base_price;
-        $pricePerKm = (float) $this->price_per_km;
-        $minimumPrice = (float) $this->minimum_price;
-        $commissionPercentage = (float) $this->commission_percentage;
+        $distanceKm = max($distanceKm, 0);
 
-        $rawPrice = $basePrice + ($distanceKm * $pricePerKm);
-        $deliveryPrice = max($rawPrice, $minimumPrice);
+        $baseDistanceKm = (float) ($this->base_distance_km ?? 3);
+        $basePrice = (float) ($this->base_price ?? 1000);
+        $extraPricePerKm = (float) ($this->extra_price_per_km ?? 200);
+        $minimumPrice = (float) ($this->minimum_price ?? 0);
+        $commissionPercentage = (float) ($this->commission_percentage ?? 20);
 
+        $extraDistanceKm = max($distanceKm - $baseDistanceKm, 0);
+
+        /*
+         * We charge every started extra KM.
+         * Example: extra 0.1 km = 1 extra km charge.
+         */
+        $chargedExtraKm = (int) ceil($extraDistanceKm);
+
+        $rawPrice = $basePrice + ($chargedExtraKm * $extraPricePerKm);
+
+        /*
+         * Minimum price is optional.
+         * If minimum_price is 0, raw price is used.
+         */
+        $deliveryPrice = $minimumPrice > 0
+            ? max($rawPrice, $minimumPrice)
+            : $rawPrice;
+
+        /*
+         * This is estimated commission.
+         * In the orders module, commission should be saved only when journey is completed.
+         */
         $commissionAmount = ($deliveryPrice * $commissionPercentage) / 100;
         $riderEarning = $deliveryPrice - $commissionAmount;
 
         return [
             'distance_km' => round($distanceKm, 2),
+            'base_distance_km' => round($baseDistanceKm, 2),
             'base_price' => round($basePrice, 2),
-            'price_per_km' => round($pricePerKm, 2),
+            'extra_distance_km' => round($extraDistanceKm, 2),
+            'charged_extra_km' => $chargedExtraKm,
+            'extra_price_per_km' => round($extraPricePerKm, 2),
             'minimum_price' => round($minimumPrice, 2),
-            'raw_price' => round($rawPrice, 2),
             'delivery_price' => round($deliveryPrice, 2),
             'commission_percentage' => round($commissionPercentage, 2),
             'commission_amount' => round($commissionAmount, 2),
             'rider_earning' => round($riderEarning, 2),
-            'currency' => $this->currency,
+            'currency' => $this->currency ?? 'RWF',
+            'commission_note' => 'Commission is applied when the journey is completed.',
         ];
     }
 }
