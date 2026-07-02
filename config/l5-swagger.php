@@ -12,6 +12,9 @@ return [
             'routes' => [
                 /*
                  * Route for accessing API documentation interface.
+                 *
+                 * Final URL:
+                 * https://api.icotrix.com/api/documentation
                  */
                 'api' => 'api/documentation',
             ],
@@ -41,15 +44,21 @@ return [
                 'docs_yaml' => 'api-docs.yaml',
 
                 /*
-                 * Set this to json or yaml.
+                 * Use JSON documentation by default.
                  */
                 'format_to_use_for_docs' => env('L5_FORMAT_TO_USE_FOR_DOCS', 'json'),
 
                 /*
-                 * Paths where Swagger annotations/attributes are stored.
+                 * Paths where Swagger annotations or attributes are stored.
                  *
-                 * app/Swagger must contain OpenApiInfo.php with OA Info.
-                 * app/Http/Controllers/API contains endpoint docs.
+                 * app/Swagger/OpenApiInfo.php contains:
+                 * - API title
+                 * - server URL
+                 * - security scheme
+                 * - tags
+                 *
+                 * app/Http/Controllers/API contains:
+                 * - endpoint documentation
                  */
                 'annotations' => [
                     app_path('Swagger'),
@@ -62,7 +71,7 @@ return [
     'defaults' => [
         'routes' => [
             /*
-             * Route for accessing parsed Swagger annotations.
+             * Route for accessing parsed Swagger docs.
              */
             'docs' => 'docs',
 
@@ -73,6 +82,9 @@ return [
 
             /*
              * Middleware for Swagger routes.
+             *
+             * For now it is public.
+             * Later you can protect documentation with admin middleware.
              */
             'middleware' => [
                 'api' => [],
@@ -89,7 +101,7 @@ return [
 
         'paths' => [
             /*
-             * Location where parsed Swagger docs will be stored.
+             * Location where generated Swagger docs will be stored.
              */
             'docs' => storage_path('api-docs'),
 
@@ -189,7 +201,10 @@ return [
         ],
 
         /*
-         * Regenerate docs automatically in development.
+         * Regenerate docs automatically.
+         *
+         * Keep true while developing/testing.
+         * Later in production you can set L5_SWAGGER_GENERATE_ALWAYS=false.
          */
         'generate_always' => env('L5_SWAGGER_GENERATE_ALWAYS', true),
 
@@ -226,7 +241,10 @@ return [
                 'dark_mode' => env('L5_SWAGGER_UI_DARK_MODE', false),
 
                 /*
-                 * Options: list, full, none.
+                 * Options:
+                 * list = expand tags only
+                 * full = expand tags and operations
+                 * none = collapse everything
                  */
                 'doc_expansion' => env('L5_SWAGGER_UI_DOC_EXPANSION', 'none'),
 
@@ -252,12 +270,12 @@ return [
         ],
 
         /*
-         * Constants used in annotations.
+         * Constants used in Swagger annotations/attributes.
          */
         'constants' => [
             'L5_SWAGGER_CONST_HOST' => env(
                 'L5_SWAGGER_CONST_HOST',
-                'http://127.0.0.1:8000'
+                'https://api.icotrix.com'
             ),
         ],
     ],
