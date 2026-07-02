@@ -553,19 +553,60 @@ class OpenApiInfo
         path: '/api/pricing/quote',
         tags: ['Pricing'],
         summary: 'Calculate delivery price',
-        description: 'Calculates delivery price, Akamoto commission, and rider earning using the active pricing rule.',
+        description: 'Calculates delivery price from pickup to dropoff. Akamoto rule: first 3 KM is 1000 RWF, each extra started KM is 200 RWF. Commission is 20% and is applied when the journey is completed.',
         security: [
             ['sanctum' => []],
         ],
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
-                required: ['distance_km'],
                 properties: [
-                    new OA\Property(property: 'distance_km', type: 'number', format: 'float', example: 6),
-                    new OA\Property(property: 'vehicle_type', type: 'string', enum: ['moto', 'bicycle', 'car', 'van'], example: 'moto'),
+                    new OA\Property(
+                        property: 'distance_km',
+                        type: 'number',
+                        format: 'float',
+                        example: 6.2,
+                        description: 'Optional manual distance for testing. If provided without coordinates, system uses this distance.'
+                    ),
+                    new OA\Property(
+                        property: 'pickup_latitude',
+                        type: 'number',
+                        format: 'float',
+                        example: -1.9441
+                    ),
+                    new OA\Property(
+                        property: 'pickup_longitude',
+                        type: 'number',
+                        format: 'float',
+                        example: 30.0619
+                    ),
+                    new OA\Property(
+                        property: 'dropoff_latitude',
+                        type: 'number',
+                        format: 'float',
+                        example: -1.9706
+                    ),
+                    new OA\Property(
+                        property: 'dropoff_longitude',
+                        type: 'number',
+                        format: 'float',
+                        example: 30.1044
+                    ),
+                    new OA\Property(
+                        property: 'vehicle_type',
+                        type: 'string',
+                        enum: ['moto', 'bicycle', 'car', 'van'],
+                        example: 'moto'
+                    ),
                 ],
-                type: 'object'
+                type: 'object',
+                example: [
+                    'pickup_latitude' => -1.9441,
+                    'pickup_longitude' => 30.0619,
+                    'dropoff_latitude' => -1.9706,
+                    'dropoff_longitude' => 30.1044,
+                    'vehicle_type' => 'moto',
+                ]
             )
         ),
         responses: [
@@ -613,7 +654,7 @@ class OpenApiInfo
                 in: 'query',
                 required: false,
                 schema: new OA\Schema(type: 'string'),
-                example: 'Kigali Moto'
+                example: 'Akamoto Moto'
             ),
             new OA\Parameter(
                 name: 'per_page',
@@ -637,25 +678,83 @@ class OpenApiInfo
         path: '/api/admin/pricing-rules',
         tags: ['Admin Pricing Rules'],
         summary: 'Create pricing rule',
-        description: 'Admin creates a new pricing rule with base price, price per kilometer, minimum price, and commission percentage.',
+        description: 'Admin creates pricing rule. Default Akamoto tariff: first 3 KM = 1000 RWF, each extra started KM = 200 RWF, commission = 20%.',
         security: [
             ['sanctum' => []],
         ],
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
-                required: ['name', 'base_price', 'price_per_km', 'minimum_price', 'commission_percentage'],
+                required: ['name'],
                 properties: [
-                    new OA\Property(property: 'name', type: 'string', example: 'Kigali Moto Standard'),
-                    new OA\Property(property: 'vehicle_type', type: 'string', enum: ['moto', 'bicycle', 'car', 'van'], example: 'moto'),
-                    new OA\Property(property: 'base_price', type: 'number', format: 'float', example: 1000),
-                    new OA\Property(property: 'price_per_km', type: 'number', format: 'float', example: 500),
-                    new OA\Property(property: 'minimum_price', type: 'number', format: 'float', example: 1500),
-                    new OA\Property(property: 'commission_percentage', type: 'number', format: 'float', example: 20),
-                    new OA\Property(property: 'currency', type: 'string', example: 'RWF'),
-                    new OA\Property(property: 'is_active', type: 'boolean', example: true),
+                    new OA\Property(
+                        property: 'name',
+                        type: 'string',
+                        example: 'Akamoto Moto Standard'
+                    ),
+                    new OA\Property(
+                        property: 'vehicle_type',
+                        type: 'string',
+                        enum: ['moto', 'bicycle', 'car', 'van'],
+                        example: 'moto'
+                    ),
+                    new OA\Property(
+                        property: 'base_distance_km',
+                        type: 'number',
+                        format: 'float',
+                        example: 3,
+                        description: 'Distance included in the base price.'
+                    ),
+                    new OA\Property(
+                        property: 'base_price',
+                        type: 'number',
+                        format: 'float',
+                        example: 1000,
+                        description: 'Price for the first base distance.'
+                    ),
+                    new OA\Property(
+                        property: 'extra_price_per_km',
+                        type: 'number',
+                        format: 'float',
+                        example: 200,
+                        description: 'Price for each extra started kilometer.'
+                    ),
+                    new OA\Property(
+                        property: 'minimum_price',
+                        type: 'number',
+                        format: 'float',
+                        example: 0
+                    ),
+                    new OA\Property(
+                        property: 'commission_percentage',
+                        type: 'number',
+                        format: 'float',
+                        example: 20,
+                        description: 'Commission percentage applied when journey is completed.'
+                    ),
+                    new OA\Property(
+                        property: 'currency',
+                        type: 'string',
+                        example: 'RWF'
+                    ),
+                    new OA\Property(
+                        property: 'is_active',
+                        type: 'boolean',
+                        example: true
+                    ),
                 ],
-                type: 'object'
+                type: 'object',
+                example: [
+                    'name' => 'Akamoto Moto Standard',
+                    'vehicle_type' => 'moto',
+                    'base_distance_km' => 3,
+                    'base_price' => 1000,
+                    'extra_price_per_km' => 200,
+                    'minimum_price' => 0,
+                    'commission_percentage' => 20,
+                    'currency' => 'RWF',
+                    'is_active' => true,
+                ]
             )
         ),
         responses: [
@@ -720,12 +819,13 @@ class OpenApiInfo
             required: true,
             content: new OA\JsonContent(
                 properties: [
-                    new OA\Property(property: 'name', type: 'string', example: 'Kigali Moto Updated'),
+                    new OA\Property(property: 'name', type: 'string', example: 'Akamoto Moto Updated'),
                     new OA\Property(property: 'vehicle_type', type: 'string', enum: ['moto', 'bicycle', 'car', 'van'], example: 'moto'),
-                    new OA\Property(property: 'base_price', type: 'number', format: 'float', example: 1200),
-                    new OA\Property(property: 'price_per_km', type: 'number', format: 'float', example: 600),
-                    new OA\Property(property: 'minimum_price', type: 'number', format: 'float', example: 1800),
-                    new OA\Property(property: 'commission_percentage', type: 'number', format: 'float', example: 18),
+                    new OA\Property(property: 'base_distance_km', type: 'number', format: 'float', example: 3),
+                    new OA\Property(property: 'base_price', type: 'number', format: 'float', example: 1000),
+                    new OA\Property(property: 'extra_price_per_km', type: 'number', format: 'float', example: 200),
+                    new OA\Property(property: 'minimum_price', type: 'number', format: 'float', example: 0),
+                    new OA\Property(property: 'commission_percentage', type: 'number', format: 'float', example: 20),
                     new OA\Property(property: 'currency', type: 'string', example: 'RWF'),
                     new OA\Property(property: 'is_active', type: 'boolean', example: true),
                 ],
@@ -766,11 +866,12 @@ class OpenApiInfo
             required: true,
             content: new OA\JsonContent(
                 properties: [
-                    new OA\Property(property: 'name', type: 'string', example: 'Kigali Moto Updated'),
-                    new OA\Property(property: 'base_price', type: 'number', format: 'float', example: 1200),
-                    new OA\Property(property: 'price_per_km', type: 'number', format: 'float', example: 600),
-                    new OA\Property(property: 'minimum_price', type: 'number', format: 'float', example: 1800),
-                    new OA\Property(property: 'commission_percentage', type: 'number', format: 'float', example: 18),
+                    new OA\Property(property: 'name', type: 'string', example: 'Akamoto Moto Updated'),
+                    new OA\Property(property: 'base_distance_km', type: 'number', format: 'float', example: 3),
+                    new OA\Property(property: 'base_price', type: 'number', format: 'float', example: 1000),
+                    new OA\Property(property: 'extra_price_per_km', type: 'number', format: 'float', example: 200),
+                    new OA\Property(property: 'minimum_price', type: 'number', format: 'float', example: 0),
+                    new OA\Property(property: 'commission_percentage', type: 'number', format: 'float', example: 20),
                     new OA\Property(property: 'is_active', type: 'boolean', example: true),
                 ],
                 type: 'object'
